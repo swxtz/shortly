@@ -7,7 +7,7 @@ export async function linksRoutes(app: FastifyInstance) {
         "/create/free",
         async (request: FastifyRequest, reply: FastifyReply) => {
             const schema = z.object({
-                url: z.string(),
+                url: z.string().url(),
             });
 
             try {
@@ -21,7 +21,7 @@ export async function linksRoutes(app: FastifyInstance) {
                 }
 
                 app.redis.setex(shortLinkCode, 60 * 30, url);
-                reply.send({ shortLink: shortLinkCode });
+                reply.status(201).send({ shortLink: shortLinkCode });
             } catch (error) {
                 if (error instanceof z.ZodError) {
                     reply.status(400).send({ message: error });
@@ -42,11 +42,19 @@ export async function linksRoutes(app: FastifyInstance) {
 
             try {
                 const { key } = schema.parse(request.params);
+
+                if (!key) {
+                    return reply
+                        .status(400)
+                        .send({ message: "Invalid request" });
+                }
+
                 const url = await app.redis.get(key);
 
                 if (!url) {
-                    reply.status(404).send({ message: "Link not found" });
-                    return;
+                    return reply
+                        .status(404)
+                        .send({ message: "Link not found" });
                 }
 
                 reply.send({ url });
